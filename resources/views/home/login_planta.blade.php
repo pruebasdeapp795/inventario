@@ -163,15 +163,19 @@
             <h2>Control Planta</h2>
             <p class="subtitle">Ingresa tus credenciales para acceder</p>
 
-            <form action="#" method="POST" onsubmit="event.preventDefault();">
+            <form action="{{ route('login') }}" method="POST">
+                @csrf
                 <div class="text-start">
                     <label class="form-label text-muted small fw-bold">Usuario</label>
-                    <input type="text" class="form-control" placeholder="Ej. operario_01" required>
+                    <input type="text" name="username" class="form-control @error('username') is-invalid @enderror" placeholder="Ej. operario_01" value="{{ old('username') }}" required>
+                    @error('username')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
                 </div>
                 
                 <div class="text-start">
                     <label class="form-label text-muted small fw-bold">Contraseña</label>
-                    <input type="password" class="form-control" placeholder="••••••••" required>
+                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
                 </div>
 
                 <button type="submit" class="btn btn-primary">
