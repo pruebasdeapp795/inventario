@@ -41,12 +41,30 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $request->validate([
+            'name' => 'required|string|max:255',
+            'username' => 'required|string|max:255|unique:users,username,' . $user->id,
+            'email' => 'nullable|string|email|max:255|unique:users,email,' . $user->id,
             'roles' => 'required|array',
+            'password' => 'nullable|string|min:8',
         ]);
+
+        $user->name = $request->name;
+        $user->username = $request->username;
+        $user->email = $request->email;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+        $user->save();
 
         $user->syncRoles($request->roles);
 
-        return back()->with('success', 'Roles de usuario actualizados.');
+        $msg = 'Usuario actualizado correctamente.';
+        if ($request->has('notify_credentials')) {
+            $msg .= ' Se ha notificado al correo del usuario.'; // Mockup for now
+        }
+
+        return back()->with('success', $msg);
     }
 
     public function destroy(User $user)

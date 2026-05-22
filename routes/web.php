@@ -4,10 +4,15 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\MaterialSapController;
 
 Route::get('/', function () {
     return view('home.index');
 });
+
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->name('dashboard');
 
 Route::get('/login-planta', function () {
     return view('home.login_planta');
@@ -36,3 +41,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 });
+
+// Rutas de Materiales SAP
+Route::get('/materiales', [MaterialSapController::class, 'index'])->name('materiales.index');
+Route::post('/materiales', [MaterialSapController::class, 'store'])->name('materiales.store');
+Route::put('/materiales/{material}', [MaterialSapController::class, 'update'])->name('materiales.update');
+Route::delete('/materiales/{material}', [MaterialSapController::class, 'destroy'])->name('materiales.destroy');
