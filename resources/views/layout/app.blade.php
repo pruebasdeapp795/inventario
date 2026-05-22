@@ -454,7 +454,8 @@
                     <i class='bx bx-box'></i> Inventario <i class='bx bx-chevron-down' style="margin-left: auto;"></i>
                 </a>
                 <ul class="submenu">
-                    <li><a href="#" class="submenu-link">Cíclico</a></li>
+                    <li><a href="{{ route('inventario.index') }}" class="submenu-link">Cíclico</a></li>
+
                     <li><a href="#" class="submenu-link">General</a></li>
                 </ul>
             </li>
@@ -462,7 +463,7 @@
                 <a href="{{ route('materiales.index') }}" class="sidebar-link">
                     <i class='bx bx-qr-scan'></i> Materiales
                 </a>
-            </li>   
+            </li>
             <li class="sidebar-item">
                 <a href="#" class="sidebar-link">
                     <i class='bx bx-pie-chart-alt-2'></i> Reportes

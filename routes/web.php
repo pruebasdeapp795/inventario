@@ -5,6 +5,8 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MaterialSapController;
+use App\Http\Controllers\CiclicoController;
+
 
 Route::get('/', function () {
     return view('home.index');
@@ -47,3 +49,13 @@ Route::get('/materiales', [MaterialSapController::class, 'index'])->name('materi
 Route::post('/materiales', [MaterialSapController::class, 'store'])->name('materiales.store');
 Route::put('/materiales/{material}', [MaterialSapController::class, 'update'])->name('materiales.update');
 Route::delete('/materiales/{material}', [MaterialSapController::class, 'destroy'])->name('materiales.destroy');
+// Rutas de Inventario
+Route::get('/inventario/ciclico', [CiclicoController::class, 'index'])->name('inventario.index');
+
+Route::get('/inventario/nuevo', [CiclicoController::class, 'create'])->name('inventario.create');
+Route::post('/inventario/store', [CiclicoController::class, 'store'])->name('inventario.store');
+Route::post('/inventario/import', [CiclicoController::class, 'import'])->name('inventario.import');
+Route::delete('/inventario/{ciclico}', [CiclicoController::class, 'destroy'])->name('inventario.destroy');
+
+
+
