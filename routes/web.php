@@ -51,11 +51,8 @@ Route::put('/materiales/{material}', [MaterialSapController::class, 'update'])->
 Route::delete('/materiales/{material}', [MaterialSapController::class, 'destroy'])->name('materiales.destroy');
 // Rutas de Inventario
 Route::get('/inventario/ciclico', [CiclicoController::class, 'index'])->name('inventario.index');
-
-Route::get('/inventario/nuevo', [CiclicoController::class, 'create'])->name('inventario.create');
 Route::post('/inventario/store', [CiclicoController::class, 'store'])->name('inventario.store');
-Route::post('/inventario/import', [CiclicoController::class, 'import'])->name('inventario.import');
+Route::get('/inventario/sesion/{ciclico}', [CiclicoController::class, 'show'])->name('inventario.show');
+Route::post('/inventario/import/{ciclico}', [CiclicoController::class, 'import'])->name('inventario.import');
+Route::post('/inventario/close/{ciclico}', [CiclicoController::class, 'close'])->name('inventario.close');
 Route::delete('/inventario/{ciclico}', [CiclicoController::class, 'destroy'])->name('inventario.destroy');
-
-
-

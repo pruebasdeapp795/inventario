@@ -60,28 +60,6 @@
             color: white;
         }
 
-        .btn-outline-theme {
-            background: transparent;
-            color: var(--sidebar-bg);
-            border: 1.5px solid var(--sidebar-bg);
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
-            font-family: inherit;
-            text-decoration: none;
-        }
-
-        .btn-outline-theme:hover {
-            background: var(--sidebar-bg);
-            color: white;
-        }
-
         .status-badge {
             padding: 4px 10px;
             border-radius: 20px;
@@ -108,9 +86,9 @@
                     inventario.</p>
             </div>
             <div style="display: flex; gap: 12px;">
-                <a href="{{ route('inventario.create') }}" class="btn-theme">
+                <button class="btn-theme" data-bs-toggle="modal" data-bs-target="#newSessionModal">
                     <i class="fa-solid fa-plus-circle me-1"></i> Iniciar Nuevo Inventario
-                </a>
+                </button>
             </div>
         </div>
 
@@ -144,12 +122,13 @@
                                 </span>
                             </td>
                             <td style="padding: 15px; text-align: right;">
-                                <a href="#" class="btn btn-link text-muted p-0 me-3"><i class="fa-solid fa-eye"></i></a>
+                                <a href="{{ route('inventario.show', $c->id) }}" class="btn btn-link text-primary p-0 me-3"><i
+                                        class="fa-solid fa-eye"></i></a>
                                 <form action="{{ route('inventario.destroy', $c->id) }}" method="POST" style="display: inline;">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn btn-link text-danger p-0"
-                                        onclick="return confirm('¿Eliminar este inventario?')">
+                                        onclick="return confirm('¿Eliminar esta sesión?')">
                                         <i class="fa-solid fa-trash-can"></i>
                                     </button>
                                 </form>
@@ -168,4 +147,31 @@
             </table>
         </div>
     </div>
+
+    <!-- Modal para Nueva Sesión -->
+    <div class="modal fade" id="newSessionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                <form action="{{ route('inventario.store') }}" method="POST">
+                    @csrf
+                    <div class="modal-body p-4">
+                        <h5 class="fw-bold mb-3">Nueva Sesión de Inventario</h5>
+                        <p class="text-muted small">Indique un nombre para identificar este conteo cíclico.</p>
+                        <input type="text" name="nombre" class="form-control form-control-lg mb-4"
+                            placeholder="Ej: Conteo Almacén Central - Mayo" required style="border-radius: 12px;">
+
+                        <div class="d-flex gap-3">
+                            <button type="button" class="btn btn-light w-100" data-bs-dismiss="modal"
+                                style="border-radius: 12px; font-weight: 600;">Cancelar</button>
+                            <button type="submit" class="btn btn-dark w-100"
+                                style="border-radius: 12px; font-weight: 600; background: var(--sidebar-bg);">Iniciar
+                                Conteo</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 @endsection

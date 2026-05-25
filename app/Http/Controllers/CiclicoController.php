@@ -17,19 +17,13 @@ class CiclicoController extends Controller
         return view('inventario.index', compact('ciclicos'));
     }
 
-    public function create()
-    {
-        $materiales = InventarioSap::all();
-        return view('inventario.create', compact('materiales'));
-    }
-
-
-
+    /**
+     * Inicia una nueva sesión de inventario (crea el registro primero)
+     */
     public function store(Request $request)
     {
         $request->validate([
             'nombre' => 'required|string|max:255',
-            'ids' => 'required|array'
         ]);
 
         $ciclico = Ciclico::create([
@@ -37,51 +31,75 @@ class CiclicoController extends Controller
             'status' => 'Abierto'
         ]);
 
-        $materials = InventarioSap::whereIn('id', $request->ids)->get();
-
-        foreach ($materials as $m) {
-            CiclicoItem::create([
-                'ciclico_id' => $ciclico->id,
-                'material' => $m->material,
-                'descripcion' => $m->texto_breve_de_material,
-                'centro' => $m->centro,
-                'almacen' => $m->almacen,
-                'stock_sap' => $m->libre_utilizacion,
-                'um' => $m->unidad_medida_base,
-            ]);
-        }
-
-        // Clear staging table after successfully creating the inventory session
-        InventarioSap::truncate();
-
-        return response()->json(['success' => 'Inventario cíclico guardado correctamente.', 'redirect' => route('inventario.index')]);
-
-
+        return redirect()->route('inventario.show', $ciclico->id);
     }
 
-    public function import(Request $request)
+    /**
+     * Workspace de una sesión específica
+     */
+    public function show(Ciclico $ciclico)
+    {
+        // Traemos los items ya cargados si los hay
+        $items = $ciclico->items()->get();
+        return view('inventario.show', compact('ciclico', 'items'));
+    }
+
+    /**
+     * Importa el Excel directamente a la sesión activa
+     */
+    public function import(Request $request, Ciclico $ciclico)
     {
         $request->validate([
             'file' => 'required|mimes:xlsx,xls,csv'
         ]);
 
         try {
+            // Limpiamos items previos de esta sesión si se desea sobrescribir con un nuevo Excel
+            $ciclico->items()->delete();
+
+            // Usamos el importador pero ahora guardaremos directamente en CiclicoItem
+            // O podemos usar InventarioSap staging y luego mover.
+            // Para mantener consistencia con lo anterior, cargamos en staging y movemos a la sesión.
             InventarioSap::truncate();
             Excel::import(new InventarioSapImport, $request->file('file'));
 
-            $count = InventarioSap::count();
+            $materialesStaging = InventarioSap::all();
+
+            foreach ($materialesStaging as $m) {
+                CiclicoItem::create([
+                    'ciclico_id' => $ciclico->id,
+                    'material' => $m->material,
+                    'descripcion' => $m->texto_breve_de_material,
+                    'centro' => $m->centro,
+                    'almacen' => $m->almacen,
+                    'stock_sap' => $m->libre_utilizacion,
+                    'um' => $m->unidad_medida_base,
+                ]);
+            }
+
+            $count = $ciclico->items()->count();
+
             return response()->json([
-                'success' => 'Reporte SAP cargado correctamente.',
+                'success' => 'Reporte SAP cargado correctamente en la sesión.',
                 'count' => $count
             ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error al procesar el archivo: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Error: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Finaliza la sesión (solo cambia estado)
+     */
+    public function close(Ciclico $ciclico)
+    {
+        $ciclico->update(['status' => 'Cerrado']);
+        return redirect()->route('inventario.index')->with('success', 'Sesión de inventario finalizada.');
     }
 
     public function destroy(Ciclico $ciclico)
     {
         $ciclico->delete();
-        return back()->with('success', 'Inventario eliminado.');
+        return back()->with('success', 'Sesión eliminada.');
     }
 }
