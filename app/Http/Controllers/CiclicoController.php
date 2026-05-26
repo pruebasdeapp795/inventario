@@ -39,9 +39,25 @@ class CiclicoController extends Controller
      */
     public function show(Ciclico $ciclico)
     {
-        // Traemos los items ya cargados si los hay
-        $items = $ciclico->items()->get();
-        return view('inventario.show', compact('ciclico', 'items'));
+        $itemsRaw = $ciclico->items()->get();
+        $isAdmin = auth()->user()->hasAnyRole(['Administrador', 'Costos', 'Jefe Costos', 'Avanzado']);
+
+        $items = $itemsRaw->map(function ($item) use ($isAdmin) {
+            $clone = clone $item;
+            if (!$isAdmin) {
+                $clone->stock_sap = 0;
+                $clone->valor_sap = 0;
+                $clone->diferencia = 0;
+                $clone->valor_diferencia = 0;
+            }
+            return $clone;
+        });
+
+        $totalItems = $itemsRaw->count();
+        $contadosItems = $itemsRaw->where('contado', true)->count();
+        $avance = $totalItems > 0 ? round(($contadosItems / $totalItems) * 100, 2) : 0;
+
+        return view('inventario.show', compact('ciclico', 'items', 'totalItems', 'contadosItems', 'avance', 'isAdmin'));
     }
 
     /**
@@ -54,12 +70,8 @@ class CiclicoController extends Controller
         ]);
 
         try {
-            // Limpiamos items previos de esta sesión si se desea sobrescribir con un nuevo Excel
             $ciclico->items()->delete();
 
-            // Usamos el importador pero ahora guardaremos directamente en CiclicoItem
-            // O podemos usar InventarioSap staging y luego mover.
-            // Para mantener consistencia con lo anterior, cargamos en staging y movemos a la sesión.
             InventarioSap::truncate();
             Excel::import(new InventarioSapImport, $request->file('file'));
 
@@ -73,6 +85,7 @@ class CiclicoController extends Controller
                     'centro' => $m->centro,
                     'almacen' => $m->almacen,
                     'stock_sap' => $m->libre_utilizacion,
+                    'valor_sap' => $m->valor_libre_util,
                     'um' => $m->unidad_medida_base,
                 ]);
             }
@@ -86,6 +99,42 @@ class CiclicoController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Registra el conteo físico de un material
+     */
+    public function registerCount(Request $request, Ciclico $ciclico)
+    {
+        $request->validate([
+            'id' => 'required|exists:ciclico_items,id',
+            'cantidad' => 'required|numeric'
+        ]);
+
+        $item = CiclicoItem::where('ciclico_id', $ciclico->id)->findOrFail($request->id);
+
+        $item->cantidad_fisica = $request->cantidad;
+        $item->contado = true;
+        $item->diferencia = $item->cantidad_fisica - $item->stock_sap;
+
+        // Calculo de costo unitario para la variacion de valor
+        // Si no hay stock SAP pero hay valor, usamos el valor. 
+        // Si no hay stock SAP ni valor, el costo es 0 (o no podemos determinarlo).
+        $costoUnitario = $item->stock_sap != 0 ? ($item->valor_sap / $item->stock_sap) : 0;
+        $item->valor_diferencia = $item->diferencia * $costoUnitario;
+
+        $item->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Conteo registrado correctamente.',
+            'item' => [
+                'id' => $item->id,
+                'cantidad_fisica' => $item->cantidad_fisica,
+                'diferencia' => $item->diferencia,
+                'valor_diferencia' => $item->valor_diferencia
+            ]
+        ]);
     }
 
     /**

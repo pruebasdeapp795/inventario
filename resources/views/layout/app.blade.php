@@ -483,6 +483,16 @@
                     <i class='bx bx-group'></i> Gestión Usuario
                 </a>
             </li>
+            <li class="sidebar-item" style="margin-top: 16px;">
+                <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
+                    @csrf
+                </form>
+                <a href="#" class="sidebar-link"
+                    onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
+                    style="color: rgba(239, 68, 68, 0.9);">
+                    <i class='bx bx-log-out-circle' style="color: rgba(239, 68, 68, 0.9);"></i> Cerrar Sesión
+                </a>
+            </li>
         </ul>
 
         <div class="sidebar-footer">

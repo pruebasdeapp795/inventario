@@ -13,6 +13,11 @@ class CiclicoItem extends Model
         'centro',
         'almacen',
         'stock_sap',
-        'um'
+        'valor_sap',
+        'um',
+        'cantidad_fisica',
+        'contado',
+        'diferencia',
+        'valor_diferencia'
     ];
 }
