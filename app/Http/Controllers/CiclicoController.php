@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\InventarioSap;
 use App\Models\Ciclico;
 use App\Models\CiclicoItem;
+use App\Models\MaterialSap;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\InventarioSapImport;
 
@@ -34,30 +35,53 @@ class CiclicoController extends Controller
         return redirect()->route('inventario.show', $ciclico->id);
     }
 
-    /**
-     * Workspace de una sesión específica
-     */
     public function show(Ciclico $ciclico)
     {
         $itemsRaw = $ciclico->items()->get();
-        $isAdmin = auth()->user()->hasAnyRole(['Administrador', 'Costos', 'Jefe Costos', 'Avanzado']);
+        // Solo el Administrador puede ver datos sensibles (stock, valor, diferencia, estado detallado)
+        $isFullAdmin = auth()->user()->hasRole('Administrador');
+        // Varios roles pueden realizar la selección y el conteo
+        $canSelect = auth()->user()->hasAnyRole(['Administrador', 'Costos', 'Jefe Costos', 'Avanzado']);
 
-        $items = $itemsRaw->map(function ($item) use ($isAdmin) {
-            $clone = clone $item;
-            if (!$isAdmin) {
-                $clone->stock_sap = 0;
-                $clone->valor_sap = 0;
-                $clone->diferencia = 0;
-                $clone->valor_diferencia = 0;
+        $fase = $ciclico->fase;
+
+        $items = $itemsRaw->map(function ($item) use ($isFullAdmin) {
+            if (!$isFullAdmin) {
+                $item->stock_sap = 0;
+                $item->valor_sap = 0;
+                $item->diferencia = 0;
+                $item->valor_diferencia = 0;
             }
-            return $clone;
+            return $item;
         });
 
         $totalItems = $itemsRaw->count();
         $contadosItems = $itemsRaw->where('contado', true)->count();
         $avance = $totalItems > 0 ? round(($contadosItems / $totalItems) * 100, 2) : 0;
 
-        return view('inventario.show', compact('ciclico', 'items', 'totalItems', 'contadosItems', 'avance', 'isAdmin'));
+        return view('inventario.show', compact('ciclico', 'items', 'totalItems', 'contadosItems', 'avance', 'isFullAdmin', 'canSelect', 'fase'));
+    }
+
+    /**
+     * Inicia la fase de conteo, guardando los items seleccionados
+     */
+    public function startCounting(Request $request, Ciclico $ciclico)
+    {
+        $request->validate([
+            'items' => 'required|array',
+            'items.*' => 'exists:ciclico_items,id'
+        ]);
+
+        // Desmarcar todos primero
+        CiclicoItem::where('ciclico_id', $ciclico->id)->update(['seleccionado' => false]);
+
+        // Marcar los seleccionados
+        CiclicoItem::whereIn('id', $request->items)->update(['seleccionado' => true]);
+
+        // Cambiar fase
+        $ciclico->update(['fase' => 'conteo']);
+
+        return response()->json(['success' => true, 'message' => 'Fase de conteo iniciada.']);
     }
 
     /**
@@ -134,6 +158,58 @@ class CiclicoController extends Controller
                 'diferencia' => $item->diferencia,
                 'valor_diferencia' => $item->valor_diferencia
             ]
+        ]);
+    }
+
+    /**
+     * Agrega un material al ciclo si no existe (basado en cod sap)
+     */
+    public function addItem(Request $request, Ciclico $ciclico)
+    {
+        $request->validate([
+            'cod_sap' => 'required|string'
+        ]);
+
+        $codSap = $request->cod_sap;
+
+        // Verificar si ya existe en la sesión
+        $item = CiclicoItem::where('ciclico_id', $ciclico->id)
+            ->where('material', $codSap)
+            ->first();
+
+        if ($item) {
+            return response()->json([
+                'success' => true,
+                'item' => $item
+            ]);
+        }
+
+        // Si no existe, buscar en el maestro de materiales
+        $maestro = MaterialSap::where('cod', $codSap)->first();
+
+        if (!$maestro) {
+            return response()->json([
+                'error' => "El material con código SAP '$codSap' no existe en el maestro de materiales."
+            ], 404);
+        }
+
+        // Crear el item en la sesión
+        $newItem = CiclicoItem::create([
+            'ciclico_id' => $ciclico->id,
+            'material' => $maestro->cod,
+            'descripcion' => $maestro->material,
+            'centro' => '-',
+            'almacen' => '-',
+            'stock_sap' => 0,
+            'valor_sap' => 0,
+            'um' => 'UND', // Valor por defecto si no se conoce
+            'seleccionado' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'item' => $newItem,
+            'is_new' => true
         ]);
     }
 

@@ -15,6 +15,7 @@ class CiclicoItem extends Model
         'stock_sap',
         'valor_sap',
         'um',
+        'seleccionado',
         'cantidad_fisica',
         'contado',
         'diferencia',

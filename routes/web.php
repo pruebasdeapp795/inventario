@@ -54,6 +54,8 @@ Route::get('/inventario/ciclico', [CiclicoController::class, 'index'])->name('in
 Route::post('/inventario/store', [CiclicoController::class, 'store'])->name('inventario.store');
 Route::get('/inventario/sesion/{ciclico}', [CiclicoController::class, 'show'])->name('inventario.show');
 Route::post('/inventario/import/{ciclico}', [CiclicoController::class, 'import'])->name('inventario.import');
+Route::post('/inventario/add-material/{ciclico}', [CiclicoController::class, 'addItem'])->name('inventario.add_item');
+Route::post('/inventario/start-counting/{ciclico}', [CiclicoController::class, 'startCounting'])->name('inventario.start_counting');
 Route::post('/inventario/register-count/{ciclico}', [CiclicoController::class, 'registerCount'])->name('inventario.register_count');
 Route::post('/inventario/close/{ciclico}', [CiclicoController::class, 'close'])->name('inventario.close');
 Route::delete('/inventario/{ciclico}', [CiclicoController::class, 'destroy'])->name('inventario.destroy');
