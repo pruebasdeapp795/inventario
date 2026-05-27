@@ -136,14 +136,20 @@ class CiclicoController extends Controller
         ]);
 
         $item = CiclicoItem::where('ciclico_id', $ciclico->id)->findOrFail($request->id);
+        $intento = $ciclico->intento_actual; // 1, 2 o 3
 
-        $item->cantidad_fisica = $request->cantidad;
+        $campoConteo = 'conteo_' . $intento;
+
+        // Sumar la nueva cantidad a la existente del intento actual
+        $item->$campoConteo = (float) ($item->$campoConteo ?? 0) + (float) $request->cantidad;
+
+        // La cantidad fisica general de la fila siempre refleja el conteo MAS RECIENTE
+        $item->cantidad_fisica = $item->$campoConteo;
         $item->contado = true;
+
         $item->diferencia = $item->cantidad_fisica - $item->stock_sap;
 
         // Calculo de costo unitario para la variacion de valor
-        // Si no hay stock SAP pero hay valor, usamos el valor. 
-        // Si no hay stock SAP ni valor, el costo es 0 (o no podemos determinarlo).
         $costoUnitario = $item->stock_sap != 0 ? ($item->valor_sap / $item->stock_sap) : 0;
         $item->valor_diferencia = $item->diferencia * $costoUnitario;
 
@@ -151,14 +157,30 @@ class CiclicoController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Conteo registrado correctamente.',
+            'message' => "Conteo registrado en Intento $intento.",
             'item' => [
                 'id' => $item->id,
                 'cantidad_fisica' => $item->cantidad_fisica,
+                'conteo_actual' => $item->$campoConteo,
+                'intento' => $intento,
                 'diferencia' => $item->diferencia,
                 'valor_diferencia' => $item->valor_diferencia
             ]
         ]);
+    }
+
+    /**
+     * Avanza al siguiente intento de reconteo (Máximo 3)
+     */
+    public function nextAttempt(Ciclico $ciclico)
+    {
+        if ($ciclico->intento_actual < 3) {
+            $prev = $ciclico->intento_actual;
+            $ciclico->increment('intento_actual');
+
+            return back()->with('success', "Se ha iniciado el Reconteo {$ciclico->intento_actual}. Los nuevos conteos se guardarán por separado.");
+        }
+        return back()->with('error', 'Ya se ha alcanzado el límite de 3 conteos.');
     }
 
     /**

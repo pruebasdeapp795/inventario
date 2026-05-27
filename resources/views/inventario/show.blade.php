@@ -321,6 +321,11 @@
                         <span class="dot"></span> {{ $ciclico->status }} ({{ $fase }})
                     </div>
                 </div>
+                <div class="mt-2">
+                    <span class="badge bg-primary px-3 py-2" style="border-radius: 8px;">
+                        <i class="fa-solid fa-list-ol me-1"></i> CONTEO #{{ $ciclico->intento_actual }}
+                    </span>
+                </div>
 
                 @if($totalItems > 0)
                     <div class="mt-3" style="max-width: 300px;">
@@ -356,6 +361,17 @@
                     @endif
 
                     @if($isFullAdmin)
+                        @if($ciclico->intento_actual < 3 && $fase == 'conteo')
+                            <form action="{{ route('inventario.next_attempt', $ciclico->id) }}" method="POST">
+                                @csrf
+                                <button type="submit" class="btn btn-warning px-4 py-2"
+                                    style="border-radius: 12px; font-weight: 600; color: #856404;"
+                                    onclick="return confirm('¿Iniciar un nuevo intento de reconteo? Los nuevos valores no sobrescribirán el historial anterior.')">
+                                    <i class="fa-solid fa-repeat me-2"></i> INICIAR RECONTEO
+                                </button>
+                            </form>
+                        @endif
+
                         <form action="{{ route('inventario.close', $ciclico->id) }}" method="POST">
                             @csrf
                             <button type="submit" class="btn-red"
@@ -418,9 +434,10 @@
                                     <th>Material</th>
                                     <th>Descripción</th>
                                     <th>Centro/Alm.</th>
+                                    <th class="text-end">Conteo</th>
                                     @if($isFullAdmin)
+                                        <th class="text-center">Historial</th>
                                         <th class="text-end">Stock SAP</th>
-                                        <th class="text-end">Conteo</th>
                                         <th class="text-end">Diferencia</th>
                                         <th class="text-end">Valor Var.</th>
                                         <th class="text-center">Estado</th>
@@ -446,12 +463,24 @@
                                         <td class="fw-bold">{{ $item->material }}</td>
                                         <td>{{ $item->descripcion }}</td>
                                         <td>{{ $item->centro }} / {{ $item->almacen }}</td>
+                                        <td class="text-end fw-bold text-primary" id="conteo-{{ $item->id }}">
+                                            @if($item->contado)
+                                                {{ number_format((float) $item->cantidad_fisica, 2) }}
+                                                <i class="fa-solid fa-circle-check text-success ms-1 small"></i>
+                                            @else
+                                                <span class="text-muted opacity-50">-</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-secondary border-0" 
+                                                    onclick="toggleHistory('{{ $item->id }}', event)" 
+                                                    title="Ver intentos de conteo">
+                                                <i class="fa-solid fa-clock-rotate-left"></i>
+                                            </button>
+                                        </td>
                                         @if($isFullAdmin)
                                             <td class="text-end">{{ number_format((float) $item->stock_sap, 2) }} <span
                                                     class="small text-muted">{{ $item->um }}</span></td>
-                                            <td class="text-end fw-bold text-primary" id="conteo-{{ $item->id }}">
-                                                {{ $item->contado ? number_format((float) $item->cantidad_fisica, 2) : '-' }}
-                                            </td>
                                             <td class="text-end fw-bold {{ $diffClass }}" id="diff-{{ $item->id }}">
                                                 {{ $item->contado ? number_format((float) $item->diferencia, 2) : '-' }}
                                             </td>
@@ -467,6 +496,28 @@
                                                 @endif
                                             </td>
                                         @endif
+                                    </tr>
+                                    {{-- Fila de detalles (Historial) --}}
+                                    <tr id="history-{{ $item->id }}" style="display: none; background-color: #f8fafc;">
+                                        <td colspan="{{ $fase == 'configuracion' ? '10' : '9' }}" class="px-4 py-3">
+                                            <div class="d-flex align-items-center gap-4">
+                                                <div class="small fw-bold text-muted">DETALLE DE INTENTOS:</div>
+                                                <div class="d-flex gap-3">
+                                                    <span class="badge border text-dark bg-white">
+                                                        <small class="text-muted mr-1">Conteo 1:</small> 
+                                                        <b>{{ $item->conteo_1 !== null ? number_format($item->conteo_1, 2) : '-' }}</b>
+                                                    </span>
+                                                    <span class="badge border text-dark bg-white">
+                                                        <small class="text-muted mr-1">Conteo 2:</small> 
+                                                        <b>{{ $item->conteo_2 !== null ? number_format($item->conteo_2, 2) : '-' }}</b>
+                                                    </span>
+                                                    <span class="badge border text-dark bg-white">
+                                                        <small class="text-muted mr-1">Conteo 3:</small> 
+                                                        <b>{{ $item->conteo_3 !== null ? number_format($item->conteo_3, 2) : '-' }}</b>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -583,7 +634,7 @@
             const sessionItems = @json($items);
 
             function openScanner(id, material, desc, stockSap, um) {
-                @if($ciclico->status != 'Abierto') return; @endif
+                        @if($ciclico->status != 'Abierto') return; @endif
 
                 isGlobalScan = false;
                 selectedMaterialCode = material;
@@ -599,7 +650,7 @@
             }
 
             function openGlobalScanner() {
-                @if($ciclico->status != 'Abierto') return; @endif
+                        @if($ciclico->status != 'Abierto') return; @endif
 
                 isGlobalScan = true;
                 selectedMaterialCode = null;
@@ -895,5 +946,14 @@
                         alert('Error de red');
                     });
             }
-        </script>
+            function toggleHistory(id, event) {
+            if (event) event.stopPropagation();
+            const row = document.getElementById('history-' + id);
+            if (row.style.display === 'none') {
+                row.style.display = 'table-row';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    </script>
 @endsection
