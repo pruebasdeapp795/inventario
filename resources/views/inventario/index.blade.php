@@ -1,6 +1,6 @@
 @extends('layout.app')
 
-@section('title', 'Inventarios Cíclicos')
+@section('title', isset($tipo) && $tipo == 'general' ? 'Inventarios Generales' : 'Inventarios Cíclicos')
 
 @section('content')
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -81,7 +81,7 @@
     <div class="panel">
         <div class="panel-header">
             <div>
-                <h1 class="panel-title">Inventarios Cíclicos</h1>
+                <h1 class="panel-title">Sesiones de {{ isset($tipo) && $tipo == 'general' ? 'Inventario General' : 'Inventario Cíclico' }}</h1>
                 <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Historial y gestión de sesiones de
                     inventario.</p>
             </div>
@@ -104,6 +104,7 @@
                 <thead style="background: #f8f9fa;">
                     <tr>
                         <th style="padding: 15px;">Nombre / Sesión</th>
+                        <th style="padding: 15px;">Tipo</th>
                         <th style="padding: 15px;">Fecha</th>
                         <th style="padding: 15px;">Materiales</th>
                         <th style="padding: 15px;">Estado</th>
@@ -114,6 +115,9 @@
                     @forelse($ciclicos as $c)
                         <tr>
                             <td style="padding: 15px; font-weight: 600;">{{ $c->nombre }}</td>
+                            <td style="padding: 15px;">
+                                <span class="badge {{ $c->tipo == 'general' ? 'bg-primary' : 'bg-info text-dark' }}">{{ ucfirst($c->tipo) }}</span>
+                            </td>
                             <td style="padding: 15px; color: var(--text-muted);">{{ $c->created_at->format('d/m/Y H:i') }}</td>
                             <td style="padding: 15px;"><span class="badge bg-secondary">{{ $c->items_count }} ítems</span></td>
                             <td style="padding: 15px;">
@@ -154,18 +158,26 @@
             <div class="modal-content" style="border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
                 <form action="{{ route('inventario.store') }}" method="POST">
                     @csrf
-                    <div class="modal-body p-4">
+                    <div class="modal-body p-4 text-center">
+                        <div style="width: 64px; height: 64px; background: rgba(33, 37, 41, 0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                            <i class="fa-solid fa-clipboard-list" style="font-size: 28px; color: var(--sidebar-bg);"></i>
+                        </div>
                         <h5 class="fw-bold mb-3">Nueva Sesión de Inventario</h5>
-                        <p class="text-muted small">Indique un nombre para identificar este conteo cíclico.</p>
-                        <input type="text" name="nombre" class="form-control form-control-lg mb-4"
-                            placeholder="Ej: Conteo Almacén Central - Mayo" required style="border-radius: 12px;">
+                        <p class="text-muted mb-4">Se creará una nueva sesión con un número consecutivo automático.</p>
+
+                        <div class="mb-4 text-start">
+                            <label class="form-label fw-bold text-muted" style="font-size: 14px;">Tipo de Inventario</label>
+                            <select name="tipo" class="form-select" style="border-radius: 12px; padding: 12px;">
+                                <option value="ciclico" {{ (isset($tipo) && $tipo == 'ciclico') ? 'selected' : '' }}>Inventario Cíclico (Selección manual)</option>
+                                <option value="general" {{ (isset($tipo) && $tipo == 'general') ? 'selected' : '' }}>Inventario General (Bodega completa)</option>
+                            </select>
+                        </div>
 
                         <div class="d-flex gap-3">
                             <button type="button" class="btn btn-light w-100" data-bs-dismiss="modal"
                                 style="border-radius: 12px; font-weight: 600;">Cancelar</button>
                             <button type="submit" class="btn btn-dark w-100"
-                                style="border-radius: 12px; font-weight: 600; background: var(--sidebar-bg);">Iniciar
-                                Conteo</button>
+                                style="border-radius: 12px; font-weight: 600; background: var(--sidebar-bg);">Crear Sesión</button>
                         </div>
                     </div>
                 </form>

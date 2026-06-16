@@ -240,10 +240,10 @@
             </div>
             <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
                 <!-- Search -->
-                <div class="search-wrap">
+                <form action="{{ route('materiales.index') }}" method="GET" class="search-wrap" style="margin: 0;">
                     <i class="fa-solid fa-search"></i>
-                    <input type="text" id="searchInput" class="search-input" placeholder="Buscar material...">
-                </div>
+                    <input type="text" name="search" class="search-input" placeholder="Buscar material..." value="{{ request('search') }}">
+                </form>
                 <button class="btn-outline-theme" data-bs-toggle="modal" data-bs-target="#addMaterialModal">
                     <i class="fa-solid fa-plus"></i> Agregar Material
                 </button>
@@ -292,16 +292,17 @@
                             <td>{{ $mat->material }}</td>
                             <td style="text-align: right;">
                                 <button class="btn btn-link text-muted p-0 me-2 shadow-none" style="text-decoration:none;"
-                                    onclick="editMaterial({{ $mat->id }}, '{{ addslashes($mat->cod) }}', '{{ addslashes($mat->material) }}')">
+                                    onclick="editMaterial(this)">
                                     <i class="fa-solid fa-pen-to-square" style="font-size: 17px;"></i>
                                 </button>
                                 <button class="btn btn-link p-0 me-2 shadow-none"
                                     style="text-decoration:none; color: var(--accent-color);" title="Generar QR"
-                                    onclick="generateQrSingle({{ $mat->id }}, '{{ addslashes($mat->cod) }}', '{{ addslashes($mat->material) }}')">
+                                    onclick="generateQrSingle(this)">
                                     <i class="fa-solid fa-qrcode" style="font-size: 17px;"></i>
                                 </button>
                                 <button class="btn btn-link text-danger p-0 shadow-none" style="text-decoration:none;"
-                                    onclick="confirmDelete('{{ route('materiales.destroy', $mat->id) }}', '{{ addslashes($mat->material) }}')">
+                                    data-url="{{ route('materiales.destroy', $mat->id) }}"
+                                    onclick="confirmDelete(this)">
                                     <i class="fa-solid fa-trash-can" style="font-size: 17px;"></i>
                                 </button>
                             </td>
@@ -318,9 +319,14 @@
                 </tbody>
             </table>
         </div>
-        <div style="margin-top: 12px; font-size: 13px; color: var(--text-muted);">
-            Total: <strong id="totalCount">{{ count($materiales) }}</strong> materiales • Seleccionados: <strong
-                id="selectedCount">0</strong>
+        <div style="margin-top: 12px; font-size: 13px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+                Total: <strong id="totalCount">{{ $materiales->total() }}</strong> materiales • Seleccionados: <strong
+                    id="selectedCount">0</strong>
+            </div>
+            <div>
+                {{ $materiales->links('pagination::bootstrap-5') }}
+            </div>
         </div>
     </div>
 
@@ -465,44 +471,48 @@
         }
 
         // ---- Search ----
-        document.getElementById('searchInput').addEventListener('input', function () {
-            const q = this.value.toLowerCase();
-            document.querySelectorAll('#tableBody tr').forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(q) ? '' : 'none';
-            });
-        });
+        // Búsqueda manejada desde el backend ahora
 
         // ---- Edit ----
-        function editMaterial(id, cod, material) {
-            document.getElementById('editCod').value = cod;
-            document.getElementById('editMaterial').value = material;
-            document.getElementById('editMaterialForm').action = '/materiales/' + id;
-            new bootstrap.Modal(document.getElementById('editMaterialModal')).show();
+        function editMaterial(btn) {
+            const row = btn.closest('tr');
+            document.getElementById('editCod').value = row.dataset.cod;
+            document.getElementById('editMaterial').value = row.dataset.material;
+            document.getElementById('editMaterialForm').action = '/materiales/' + row.dataset.id;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('editMaterialModal')).show();
         }
 
         // ---- Delete Confirm ----
-        function confirmDelete(url, name) {
+        function confirmDelete(btn) {
+            const row = btn.closest('tr');
+            const name = row.dataset.material;
+            const url = btn.dataset.url;
             document.getElementById('deleteModalBody').textContent = 'Estás a punto de eliminar "' + name + '". Esta acción no se puede deshacer.';
             document.getElementById('deleteForm').action = url;
-            new bootstrap.Modal(document.getElementById('deleteConfirmModal')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteConfirmModal')).show();
         }
 
         // ---- QR Generation ----
         function buildQrCard(cod, material) {
             const card = document.createElement('div');
             card.className = 'qr-card';
-            const qrDiv = document.createElement('div');
-            card.appendChild(qrDiv);
+            
+            const img = document.createElement('img');
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(cod + ' | ' + material);
+            img.width = 120;
+            img.height = 120;
+            card.appendChild(img);
+
             const codEl = document.createElement('div');
             codEl.className = 'qr-cod';
             codEl.textContent = cod;
             const matEl = document.createElement('div');
             matEl.className = 'qr-mat';
             matEl.textContent = material;
+            
             card.appendChild(codEl);
             card.appendChild(matEl);
-            new QRCode(qrDiv, { text: cod + ' | ' + material, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
+            
             return card;
         }
 
@@ -510,11 +520,12 @@
             const grid = document.getElementById('qrGridPreview');
             grid.innerHTML = '';
             items.forEach(item => grid.appendChild(buildQrCard(item.cod, item.material)));
-            new bootstrap.Modal(document.getElementById('qrPreviewModal')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('qrPreviewModal')).show();
         }
 
-        function generateQrSingle(id, cod, material) {
-            showQrModal([{ cod, material }]);
+        function generateQrSingle(btn) {
+            const row = btn.closest('tr');
+            showQrModal([{ cod: row.dataset.cod, material: row.dataset.material }]);
         }
 
         function generateQrSelected() {

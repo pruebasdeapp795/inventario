@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Ciclico extends Model
 {
-    protected $fillable = ['nombre', 'status', 'fase', 'intento_actual'];
+    protected $fillable = ['nombre', 'status', 'fase', 'intento_actual', 'tipo'];
 
     public function items()
     {

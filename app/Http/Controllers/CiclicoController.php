@@ -12,10 +12,17 @@ use App\Imports\InventarioSapImport;
 
 class CiclicoController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $ciclicos = Ciclico::withCount('items')->orderBy('created_at', 'desc')->get();
-        return view('inventario.index', compact('ciclicos'));
+        $tipo = $request->query('tipo');
+        $query = Ciclico::withCount('items')->orderBy('created_at', 'desc');
+        
+        if ($tipo) {
+            $query->where('tipo', $tipo);
+        }
+        
+        $ciclicos = $query->get();
+        return view('inventario.index', compact('ciclicos', 'tipo'));
     }
 
     /**
@@ -23,13 +30,17 @@ class CiclicoController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'nombre' => 'required|string|max:255',
-        ]);
+        $tipo = $request->input('tipo', 'ciclico');
+        $lastCiclico = Ciclico::orderBy('id', 'desc')->first();
+        $consecutivo = $lastCiclico ? $lastCiclico->id + 1 : 1;
+        
+        $prefijo = $tipo === 'general' ? 'General' : 'Cíclico';
+        $nombre = $prefijo . ' #' . str_pad($consecutivo, 4, '0', STR_PAD_LEFT);
 
         $ciclico = Ciclico::create([
-            'nombre' => $request->nombre,
-            'status' => 'Abierto'
+            'nombre' => $nombre,
+            'status' => 'Abierto',
+            'tipo' => $tipo
         ]);
 
         return redirect()->route('inventario.show', $ciclico->id);
@@ -100,9 +111,11 @@ class CiclicoController extends Controller
             Excel::import(new InventarioSapImport, $request->file('file'));
 
             $materialesStaging = InventarioSap::all();
+            $now = now();
+            $data = [];
 
             foreach ($materialesStaging as $m) {
-                CiclicoItem::create([
+                $data[] = [
                     'ciclico_id' => $ciclico->id,
                     'material' => $m->material,
                     'descripcion' => $m->texto_breve_de_material,
@@ -111,7 +124,19 @@ class CiclicoController extends Controller
                     'stock_sap' => $m->libre_utilizacion,
                     'valor_sap' => $m->valor_libre_util,
                     'um' => $m->unidad_medida_base,
-                ]);
+                    'seleccionado' => $ciclico->tipo === 'general',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            // Inserción en bloques de 1000 para optimizar carga masiva
+            foreach (array_chunk($data, 1000) as $chunk) {
+                CiclicoItem::insert($chunk);
+            }
+
+            if ($ciclico->tipo === 'general') {
+                $ciclico->update(['fase' => 'conteo']);
             }
 
             $count = $ciclico->items()->count();
@@ -175,12 +200,12 @@ class CiclicoController extends Controller
     public function nextAttempt(Ciclico $ciclico)
     {
         if ($ciclico->intento_actual < 3) {
-            $prev = $ciclico->intento_actual;
             $ciclico->increment('intento_actual');
+            $ciclico->update(['fase' => 'conteo']); // Reactivar conteo
 
-            return back()->with('success', "Se ha iniciado el Reconteo {$ciclico->intento_actual}. Los nuevos conteos se guardarán por separado.");
+            return back()->with('success', "Reconteo #{$ciclico->intento_actual} iniciado. Los nuevos registros se acumularán en este intento.");
         }
-        return back()->with('error', 'Ya se ha alcanzado el límite de 3 conteos.');
+        return back()->with('error', 'Ya se alcanzó el límite de 3 conteos.');
     }
 
     /**
@@ -236,6 +261,15 @@ class CiclicoController extends Controller
     }
 
     /**
+     * Finaliza el conteo activo (pasa a fase revision), sin cerrar la sesion
+     */
+    public function finishCount(Ciclico $ciclico)
+    {
+        $ciclico->update(['fase' => 'revision']);
+        return back()->with('success', 'Conteo finalizado. La sesión sigue abierta para revisión.');
+    }
+
+    /**
      * Finaliza la sesión (solo cambia estado)
      */
     public function close(Ciclico $ciclico)
@@ -248,5 +282,45 @@ class CiclicoController extends Controller
     {
         $ciclico->delete();
         return back()->with('success', 'Sesión eliminada.');
+    }
+
+    /**
+     * Sugiere materiales para contar basados en el valor o al azar,
+     * excluyendo los que ya se han contado en el mes en otros inventarios cíclicos.
+     */
+    public function suggestItems(Request $request, Ciclico $ciclico)
+    {
+        $tipo = $request->input('tipo', 'mayor_valor');
+        $limit = 20;
+
+        $inicioMes = \Carbon\Carbon::now()->startOfMonth();
+        $finMes = \Carbon\Carbon::now()->endOfMonth();
+
+        // Obtener códigos SAP ya contados en otros inventarios de este mes
+        $yaContadosMes = \App\Models\CiclicoItem::join('ciclicos', 'ciclico_items.ciclico_id', '=', 'ciclicos.id')
+            ->whereBetween('ciclicos.created_at', [$inicioMes, $finMes])
+            ->where('ciclicos.id', '!=', $ciclico->id)
+            ->where('ciclico_items.contado', true)
+            ->pluck('ciclico_items.material')
+            ->toArray();
+
+        $query = $ciclico->items()
+            ->whereNotIn('material', $yaContadosMes)
+            ->where('contado', false);
+
+        if ($tipo === 'mayor_valor') {
+            $query->orderBy('valor_sap', 'desc');
+        } elseif ($tipo === 'aleatorio') {
+            $query->inRandomOrder();
+        }
+
+        $itemsSugeridos = $query->take($limit)->pluck('id')->toArray();
+
+        return response()->json([
+            'success' => true,
+            'items' => $itemsSugeridos,
+            'count' => count($itemsSugeridos),
+            'excluded_count' => count($yaContadosMes)
+        ]);
     }
 }

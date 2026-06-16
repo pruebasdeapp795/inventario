@@ -7,9 +7,17 @@ use Illuminate\Http\Request;
 
 class MaterialSapController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $materiales = MaterialSap::orderBy('cod')->get();
+        $query = MaterialSap::query();
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where('cod', 'like', "%{$search}%")
+                  ->orWhere('material', 'like', "%{$search}%");
+        }
+
+        $materiales = $query->orderBy('cod')->paginate(100)->withQueryString();
         return view('materiales.index', compact('materiales'));
     }
 
