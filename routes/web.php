@@ -47,6 +47,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 // Rutas de Materiales SAP
 Route::get('/materiales', [MaterialSapController::class, 'index'])->name('materiales.index');
 Route::post('/materiales', [MaterialSapController::class, 'store'])->name('materiales.store');
+Route::post('/materiales/import', [MaterialSapController::class, 'import'])->name('materiales.import');
 Route::put('/materiales/{material}', [MaterialSapController::class, 'update'])->name('materiales.update');
 Route::delete('/materiales/{material}', [MaterialSapController::class, 'destroy'])->name('materiales.destroy');
 // Rutas de Inventario

@@ -56,12 +56,19 @@ class CiclicoController extends Controller
 
         $fase = $ciclico->fase;
 
-        $items = $itemsRaw->map(function ($item) use ($isFullAdmin) {
+        $intento = $ciclico->intento_actual;
+        $campoConteo = 'conteo_' . $intento;
+
+        $items = $itemsRaw->map(function ($item) use ($isFullAdmin, $campoConteo) {
             if (!$isFullAdmin) {
                 $item->stock_sap = 0;
                 $item->valor_sap = 0;
                 $item->diferencia = 0;
                 $item->valor_diferencia = 0;
+                
+                // Ocultar conteo anterior para usuario básico
+                $item->cantidad_fisica = $item->$campoConteo;
+                $item->contado = !is_null($item->$campoConteo);
             }
             return $item;
         });

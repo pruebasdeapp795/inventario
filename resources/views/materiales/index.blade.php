@@ -247,6 +247,9 @@
                 <button class="btn-outline-theme" data-bs-toggle="modal" data-bs-target="#addMaterialModal">
                     <i class="fa-solid fa-plus"></i> Agregar Material
                 </button>
+                <button class="btn-outline-theme" data-bs-toggle="modal" data-bs-target="#importCsvModal">
+                    <i class="fa-solid fa-file-csv"></i> Importar CSV
+                </button>
                 <button class="btn-outline-theme" onclick="generateQrSelected()">
                     <i class="fa-solid fa-qrcode"></i> QR Seleccionados
                 </button>
@@ -383,6 +386,36 @@
                         <button type="button" class="btn" data-bs-dismiss="modal"
                             style="border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; padding: 8px 20px;">Cancelar</button>
                         <button type="submit" class="btn-theme">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Material Modal -->
+    <div class="modal fade" id="importCsvModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form action="{{ route('materiales.import') }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold" style="font-family: inherit;">Importar CSV de Materiales</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted" style="font-family: inherit;">Archivo CSV</label>
+                            <input type="file" name="file" class="form-control" accept=".csv,.txt" required>
+                            <small class="text-muted mt-2 d-block">
+                                El archivo debe tener columnas separadas por comas o punto y coma. <br>
+                                Formato esperado: <strong>Columna 1: Código, Columna 2: Descripción</strong>
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn" data-bs-dismiss="modal"
+                            style="border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; padding: 8px 20px;">Cancelar</button>
+                        <button type="submit" class="btn-theme" onclick="this.innerHTML='<i class=\'fa-solid fa-spinner fa-spin\'></i> Importando...';">Importar</button>
                     </div>
                 </form>
             </div>
@@ -545,23 +578,22 @@
         }
 
         function printPaginated() {
-            // Print 1 page = 1 qr per page
+            // Print multiple QRs per page in a grid
             const rows = document.querySelectorAll('#tableBody tr[data-id]');
             const items = Array.from(rows).map(row => ({ cod: row.dataset.cod, material: row.dataset.material }));
 
             const printWin = window.open('', '_blank');
             printWin.document.write('<html><head><title>QR Materiales</title><style>');
-            printWin.document.write('body{font-family:sans-serif;} .page{page-break-after:always; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh;} .cod{font-weight:700;font-size:18px;margin-top:12px;} .mat{font-size:14px;color:#555;}');
-            printWin.document.write('</style></head><body>');
+            printWin.document.write('body{font-family:sans-serif;} .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:16px;} .card{border:1px solid #e5e7eb;border-radius:12px;padding:12px;text-align:center;} .cod{font-weight:700;font-size:13px;margin-top:6px;} .mat{font-size:11px;color:#8d929a;}');
+            printWin.document.write('</style></head><body><div class="grid">');
             items.forEach(item => {
-                // QR as text placeholder (real QR needs canvas which won't copy across windows easily)
-                printWin.document.write('<div class="page">');
-                printWin.document.write('<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(item.cod + '|' + item.material) + '" width="200" height="200">');
+                printWin.document.write('<div class="card">');
+                printWin.document.write('<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(item.cod + '|' + item.material) + '" width="150" height="150">');
                 printWin.document.write('<div class="cod">' + item.cod + '</div>');
                 printWin.document.write('<div class="mat">' + item.material + '</div>');
                 printWin.document.write('</div>');
             });
-            printWin.document.write('</body></html>');
+            printWin.document.write('</div></body></html>');
             printWin.document.close();
             printWin.onload = () => { printWin.print(); };
         }

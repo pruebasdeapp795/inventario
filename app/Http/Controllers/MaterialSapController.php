@@ -51,6 +51,46 @@ class MaterialSapController extends Controller
         return back()->with('success', 'Material eliminado.');
     }
 
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:csv,txt'
+        ]);
+
+        $file = $request->file('file');
+        $content = file_get_contents($file->getRealPath());
+        $delimiter = strpos($content, ';') !== false ? ';' : ',';
+
+        $handle = fopen($file->getRealPath(), "r");
+        
+        $data = [];
+        $header = fgetcsv($handle, 1000, $delimiter); // Asumimos que la primera fila es el encabezado
+        
+        while (($row = fgetcsv($handle, 1000, $delimiter)) !== FALSE) {
+            if (count($row) >= 2) {
+                $cod = trim($row[0]);
+                $material = trim($row[1]);
+                if ($cod && $material) {
+                    $data[] = [
+                        'cod' => $cod,
+                        'material' => $material,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+        }
+        fclose($handle);
+
+        if (!empty($data)) {
+            foreach (array_chunk($data, 1000) as $chunk) {
+                MaterialSap::upsert($chunk, ['cod'], ['material', 'updated_at']);
+            }
+        }
+
+        return back()->with('success', 'Carga masiva completada. Se procesaron ' . count($data) . ' materiales.');
+    }
+
     /**
      * Returns JSON for a single QR or all, used by the QR generation JS.
      */

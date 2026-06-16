@@ -583,7 +583,8 @@
             document.getElementById('tempUm').value = um;
             // Buscar conteo actual
             const item = sessionItems.find(i => i.id == id);
-            document.getElementById('tempCurrentCount').value = item ? (item.cantidad_fisica ?? 0) : 0;
+            const attemptCount = item ? (item['conteo_{{ $ciclico->intento_actual }}'] ?? 0) : 0;
+            document.getElementById('tempCurrentCount').value = attemptCount;
             document.getElementById('scannerTitle').textContent = 'VALIDANDO: ' + material;
             showScannerScreen();
         }
@@ -635,7 +636,8 @@
             document.getElementById('tempMaterialDesc').value = item.descripcion;
             document.getElementById('tempStockSap').value = item.stock_sap;
             document.getElementById('tempUm').value = item.um;
-            document.getElementById('tempCurrentCount').value = item.cantidad_fisica ?? 0;
+            const attemptCount = item['conteo_{{ $ciclico->intento_actual }}'] ?? 0;
+            document.getElementById('tempCurrentCount').value = attemptCount;
             verifySuccess();
         }
 
